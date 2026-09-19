@@ -727,6 +727,13 @@ void update_players(ActionQueues* inActionQueuesToUse, bool inPredictive,
 			action_flags= 0;
 		}
 
+		/*
+		 * Mar-rat-hon has no firearm attacks. Keep the trigger buttons
+		 * available to terminal mode above, then strip them before any live
+		 * player movement or weapon processing can consume them.
+		 */
+		action_flags &= ~(_left_trigger_state | _right_trigger_state);
+
 		const bool reload_key_down =
 			input_preferences->sprintathon_enabled &&
 			(action_flags & hotkey_mask) == hotkey_mask &&
