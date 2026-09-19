@@ -25,10 +25,10 @@ jobs:
         sudo flatpak install flathub org.gnome.Platform//49 org.gnome.Sdk//49 -y
         flatpak-builder --repo=flatpak/repo --force-clean \
           flatpak/Mar-rat-hon.build \
-          flatpak/io.github.visageeee.Sprintathon.yml
+          flatpak/io.github.visageeee.MarRatHon.yml
         flatpak build-bundle flatpak/repo \
           Mar-rat-hon-x86_64.flatpak \
-          io.github.visageeee.Sprintathon
+          io.github.visageeee.MarRatHon
         
     - name: Upload
       uses: actions/upload-artifact@v6

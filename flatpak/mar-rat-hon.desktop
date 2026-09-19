@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Mar-rat-hon
+Comment=A rat-scale movement game built from Sprintathon and Aleph One
+Exec=mar-rat-hon
+Icon=io.github.visageeee.MarRatHon
+Categories=Game;ActionGame;
+Terminal=false

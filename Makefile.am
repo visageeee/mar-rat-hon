@@ -48,6 +48,9 @@ EXTRA_DIST = \
 	flatpak/org.bungie.source.MarathonInfinity.yml                              \
 	flatpak/run-nodata.sh                                                       \
 	flatpak/run.sh                                                              \
+	flatpak/io.github.visageeee.MarRatHon.yml                                   \
+	flatpak/mar-rat-hon.desktop                                                 \
+	flatpak/mar-rat-hon.sh                                                      \
 	flatpak/shared/alephone.yml                                                 \
 	flatpak/shared/asio.yml                                                     \
 	flatpak/shared/boost.yml                                                    \

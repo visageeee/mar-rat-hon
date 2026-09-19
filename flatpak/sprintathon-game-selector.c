@@ -120,8 +120,8 @@ int main(int argc, char **argv)
 	gtk_init(&argc, &argv);
 	Selector selector = {0};
 	selector.config_file = g_build_filename(g_get_user_config_dir(),
-		"sprintathon", "games", NULL);
-	selector.window = gtk_dialog_new_with_buttons("Sprintathon — Choose Game", NULL,
+		"mar-rat-hon", "games", NULL);
+	selector.window = gtk_dialog_new_with_buttons("Mar-rat-hon — Choose Game", NULL,
 		GTK_DIALOG_MODAL, "Quit", GTK_RESPONSE_CANCEL,
 		"Play", GTK_RESPONSE_OK, NULL);
 	gtk_window_set_default_size(GTK_WINDOW(selector.window), 620, 420);
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
 		"Choose a game to play or add a new folder containing Marathon game files.\n"
 		"You can use the Windows game folders for the original Bungie games, which are free to download at "
 		"<a href=\"https://alephone.lhowon.org/\">alephone.lhowon.org</a>.\n"
-		"Third-party scenarios also work with Sprintathon.");
+		"Third-party scenarios also work with Mar-rat-hon.");
 	gtk_label_set_xalign(GTK_LABEL(heading), 0.0f);
 	gtk_label_set_line_wrap(GTK_LABEL(heading), TRUE);
 	gtk_label_set_selectable(GTK_LABEL(heading), TRUE);
