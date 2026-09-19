@@ -1272,7 +1272,8 @@ void update_world_view_camera()
 		current_player->sprintathon_camera_pitch+
 		current_player->backflip_camera_pitch;
 	world_view->roll = current_player->sprintathon_camera_roll+
-		current_player->cartwheel_camera_roll;
+		current_player->cartwheel_camera_roll+
+		current_player->rat_step_camera_roll;
 	world_view->maximum_depth_intensity = current_player->weapon_intensity;
 
 	world_view->origin = current_player->camera_location;

@@ -448,6 +448,10 @@ struct player_data
 	bool sprint_key_was_down;			// requires release before restarting
 	bool sprint_blocked_until_release;		// prevents held-key sprint restarts
 	uint16 sprint_ramp_ticks;			// time spent accelerating this sprint
+	uint8 rat_sprint_leap_cooldown_ticks;	// short grounded pause between rat bounds
+	uint8 rat_second_landing_step_ticks;	// delay before the second sprint-landing paw sound
+	bool rat_sprint_was_airborne;		// detects a reliable airborne-to-grounded transition
+	int16 rat_step_camera_roll;		// visual left/right head tilt while running
 	bool wall_jump_key_was_down;			// prevents repeated wall jumps
 	uint8 wall_run_jump_cooldown_ticks;	// delay between sprint wall-run jumps
 	bool crouch_key_was_down;			// edge detection for sprint slide

@@ -1412,8 +1412,16 @@ void get_monster_dimensions(
 	struct monster_data *monster= get_monster_data(monster_index);
 	struct monster_definition *definition= get_monster_definition(monster->type);
 
-	*radius= definition->radius;
-	*height= definition->height;
+	if (MONSTER_IS_PLAYER(monster))
+	{
+		*radius= MAR_RAT_HON_PLAYER_RADIUS;
+		*height= MAR_RAT_HON_PLAYER_HEIGHT;
+	}
+	else
+	{
+		*radius= definition->radius;
+		*height= definition->height;
+	}
 }
 
 void damage_monsters_in_radius(
@@ -2323,6 +2331,14 @@ void sprintathon_play_footstep_sound(short aggressor_index, bool alternate)
 		alternate ? "Sprintathon/footstep2.ogg" :
 			"Sprintathon/footstep.ogg",
 		input_preferences->sprintathon_footstep_volume_percent / 100.f);
+}
+
+void sprintathon_play_squeak_sound(short aggressor_index)
+{
+	sprintathon_play_external_hit_sound(
+		aggressor_index,
+		"sfx/squeak.ogg",
+		"Sprintathon/squeak.ogg");
 }
 
 void sprintathon_begin_sweep_attack(short aggressor_index)

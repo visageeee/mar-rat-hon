@@ -104,6 +104,9 @@ running backwards shouldn’t mean doom in a fistfight
 
 #define DROP_DEAD_HEIGHT WORLD_TO_FIXED(WORLD_ONE_HALF)
 
+/* The camera sits slightly below the top of the rat collision body. */
+#define MAR_RAT_HON_CAMERA_INSET WORLD_TO_FIXED(WORLD_ONE/32)
+
 #define FLAGS_WHICH_PREVENT_RECENTERING (_turning|_looking|_sidestepping|_looking_vertically|_look_dont_turn|_sidestep_dont_turn)
 
 /* ---------- private prototypes */
@@ -187,7 +190,7 @@ void initialize_player_physics_variables(
 	variables->external_velocity.i= variables->external_velocity.j= variables->external_velocity.k= 0;
 	variables->wall_push_i= variables->wall_push_j= 0;
 	variables->ledge_height= INT16_MAX;
-	variables->actual_height= constants->height;
+	variables->actual_height= WORLD_TO_FIXED(MAR_RAT_HON_PLAYER_HEIGHT);
 	variables->jump_grace_ticks= 0;
 	player->jump_buffer_ticks= 0;
 	player->dodge_last_direction= 0;
@@ -207,6 +210,10 @@ void initialize_player_physics_variables(
 	player->backflip_active= false;
 	player->backflip_ticks_remaining= 0;
 	player->backflip_camera_pitch= 0;
+	player->rat_sprint_leap_cooldown_ticks= 0;
+	player->rat_second_landing_step_ticks= 0;
+	player->rat_sprint_was_airborne= false;
+	player->rat_step_camera_roll= 0;
 	player->crouch_key_was_down= false;
 	player->reload_key_was_down= false;
 	player->slide_punch_pending= false;
@@ -257,6 +264,29 @@ void update_player_physics_variables(
 	struct player_data *player= get_player_data(player_index);
 	struct physics_variables *variables= &player->variables;
 	struct physics_constants *constants= get_physics_constants_for_model(static_world->physics_model, action_flags);
+
+	/*
+	 * Rats reach their ordinary top speed quickly, stop sharply and take
+	 * short, rapid steps. Keep jump tuning intact while halving the previous
+	 * rat-pass movement limits and changing responsiveness and gait.
+	 */
+	struct physics_constants rat_constants= *constants;
+	rat_constants.acceleration=
+		(constants->acceleration*3)/2;
+	rat_constants.deceleration=
+		constants->deceleration*2;
+	rat_constants.maximum_forward_velocity=
+		(constants->maximum_forward_velocity*9)/20;
+	rat_constants.maximum_backward_velocity=
+		(constants->maximum_backward_velocity*9)/20;
+	rat_constants.maximum_perpendicular_velocity=
+		(constants->maximum_perpendicular_velocity*9)/20;
+	rat_constants.step_amplitude=
+		constants->step_amplitude/2;
+	rat_constants.step_delta=
+		constants->step_delta*2;
+	constants= &rat_constants;
+
 	struct physics_constants slowed_constants;
 	if (sprintathon_bullet_time_active())
 	{
@@ -538,7 +568,9 @@ uint32 process_aim_input(uint32 action_flags, fixed_yaw_pitch delta)
 	player->last_supporting_polygon_index= first_time ? NONE : player->supporting_polygon_index;
 	attempted_location = new_location;
 	clipped= keep_line_segment_out_of_walls(legs->polygon, &legs->location, &new_location,
-		WORLD_ONE/3, FIXED_TO_WORLD(variables->actual_height), &adjusted_floor_height, &adjusted_ceiling_height,
+		MAR_RAT_HON_PLAYER_RADIUS,
+		FIXED_TO_WORLD(variables->actual_height),
+		&adjusted_floor_height, &adjusted_ceiling_height,
 		&player->supporting_polygon_index, &blocked_ledge_height);
 	variables->ledge_height= blocked_ledge_height;
 	if (PLAYER_IS_DEAD(player)) new_location.z-= FIXED_TO_WORLD(DROP_DEAD_HEIGHT);
@@ -613,10 +645,8 @@ uint32 process_aim_input(uint32 action_flags, fixed_yaw_pitch delta)
 	player->camera_location= new_location;
 	if (PLAYER_IS_DEAD(player) && new_location.z<adjusted_floor_height) new_location.z= adjusted_floor_height;
 	player->location= new_location;
-	player->camera_location.z += FIXED_TO_WORLD(step_height +
-		(input_preferences->sprintathon_enabled ?
-			variables->actual_height - FIXED_ONE / 8 :
-			variables->actual_height - constants->camera_height));
+	player->camera_location.z += FIXED_TO_WORLD(
+		step_height + variables->actual_height - MAR_RAT_HON_CAMERA_INSET);
 	player->step_height = FIXED_TO_WORLD(step_height);
 	player->camera_polygon_index= legs->polygon;
 
@@ -979,6 +1009,71 @@ static void physics_update(
 
 	const bool touching_ground =
 		delta_z <= CLOSE_ENOUGH_TO_FLOOR;
+	const bool rat_sprint_landed=
+		touching_ground && player->rat_sprint_was_airborne;
+
+	if (rat_sprint_landed)
+	{
+		player->rat_sprint_was_airborne= false;
+		player->rat_sprint_leap_cooldown_ticks= 1;
+		player->rat_second_landing_step_ticks= 2;
+		variables->velocity= (variables->velocity*17)/20;
+		variables->perpendicular_velocity=
+			(variables->perpendicular_velocity*17)/20;
+
+		if (player_is_local && input_preferences->sprintathon_footsteps)
+		{
+			sprintathon_play_footstep_sound(
+				player->monster_index, player->footstep_alternate);
+			player->footstep_alternate= !player->footstep_alternate;
+		}
+	}
+	else if (player->sprinting && !touching_ground)
+	{
+		player->rat_sprint_was_airborne= true;
+	}
+	else if (!player->sprinting && touching_ground)
+	{
+		player->rat_sprint_was_airborne= false;
+	}
+
+	if (player->rat_second_landing_step_ticks>0)
+	{
+		player->rat_second_landing_step_ticks--;
+		if (player->rat_second_landing_step_ticks==0 &&
+			player_is_local && input_preferences->sprintathon_footsteps)
+		{
+			sprintathon_play_footstep_sound(
+				player->monster_index, player->footstep_alternate);
+			player->footstep_alternate= !player->footstep_alternate;
+		}
+	}
+
+	/*
+	 * Rat sprinting is a chain of low bounds rather than a continuous speed
+	 * boost. After each landing there is a tiny gathering pause before the
+	 * next launch, which makes each contact readable without feeling slow.
+	 */
+	if (!player->sprinting)
+	{
+		player->rat_sprint_leap_cooldown_ticks= 0;
+	}
+	else
+	{
+		if (player->rat_sprint_leap_cooldown_ticks>0)
+			player->rat_sprint_leap_cooldown_ticks--;
+
+		if (touching_ground &&
+			player->rat_sprint_leap_cooldown_ticks==0 &&
+			(action_flags&_moving_forward) &&
+			!(variables->flags&_FEET_BELOW_MEDIA_BIT))
+		{
+			variables->external_velocity.k= std::max<_fixed>(
+				variables->external_velocity.k,
+				FIXED_ONE/24);
+			player->rat_sprint_leap_cooldown_ticks= 1;
+		}
+	}
 
 	// Input is sampled before this authoritative ground test. Consume the
 	// fresh-crouch latch here so a kick cannot be lost to stale contact flags.
@@ -1059,12 +1154,13 @@ static void physics_update(
 	 */
 	if ((modern_crouch || modern_dodge) && !PLAYER_IS_DEAD(player))
 	{
-		const _fixed standing_height = constants->height;
-		const _fixed crouching_height = constants->height / 2;
+		const _fixed standing_height =
+			WORLD_TO_FIXED(MAR_RAT_HON_PLAYER_HEIGHT);
+		const _fixed crouching_height = standing_height / 2;
 		const _fixed sliding_height =
-			(constants->height * 7) / 16;
+			(standing_height * 7) / 16;
 		const _fixed back_dodge_height =
-			(constants->height * 5) / 16;
+			(standing_height * 5) / 16;
 		constexpr int back_recovery_duration = 26;
 		constexpr int back_pause_duration = 6;
 		_fixed back_recovery_height = standing_height;
@@ -1120,10 +1216,13 @@ static void physics_update(
 			}
 		}
 	}
-	else if (!modern_crouch && variables->actual_height<constants->height &&
-		variables->position.z+constants->height<=variables->ceiling_height)
+	else if (!modern_crouch &&
+		variables->actual_height<WORLD_TO_FIXED(MAR_RAT_HON_PLAYER_HEIGHT) &&
+		variables->position.z+WORLD_TO_FIXED(MAR_RAT_HON_PLAYER_HEIGHT)<=
+			variables->ceiling_height)
 	{
-		variables->actual_height= constants->height;
+		variables->actual_height=
+			WORLD_TO_FIXED(MAR_RAT_HON_PLAYER_HEIGHT);
 	}
 
 	/* process modifier keys (sidestepping and looking) into normal actions */
@@ -1754,7 +1853,7 @@ static void physics_update(
 			!(variables->flags&_DRY_MANTLING_BIT))
 		{
 			variables->flags|= _DRY_MANTLING_BIT;
-			play_object_sound(player->object_index, _snd_human_hit, player_is_local);
+			sprintathon_play_squeak_sound(player->monster_index);
 		}
 	}
 
@@ -1803,10 +1902,7 @@ static void physics_update(
 				MAX(variables->external_velocity.k,
 				    (_fixed)(FIXED_ONE / 16));
 
-			play_object_sound(
-				player->object_index,
-				_snd_human_hit,
-				player_is_local);
+			sprintathon_play_squeak_sound(player->monster_index);
 
 			// A wall jump consumes the current sprint.
 			player->sprinting = false;
@@ -1977,10 +2073,8 @@ static void physics_update(
 					variables->flags |= _WATER_MANTLING_BIT;
 
 					// Bob's effort sound when grabbing the ledge.
-					play_object_sound(
-						player->object_index,
-						_snd_human_hit,
-						player_is_local);
+					sprintathon_play_squeak_sound(
+						player->monster_index);
 				}
 			}
 
@@ -2065,10 +2159,8 @@ static void physics_update(
 				variables->jump_grace_ticks =
 					jump_grace_limit + 1;
 
-				play_object_sound(
-					player->object_index,
-					_snd_human_hit,
-					player_is_local);
+				sprintathon_play_squeak_sound(
+					player->monster_index);
 			}
 
 			variables->flags |= _JUMP_HELD_BIT;
@@ -2143,7 +2235,7 @@ static void physics_update(
 
 	if (sprintathon && player->sprinting)
 	{
-		// Build the 50% sprint bonus over 0.8 seconds. Repeatedly tapping
+		// Build a restrained 25% sprint bonus over 0.8 seconds. Repeatedly tapping
 		// Sprint therefore spends oxygen without ever reaching full speed.
 		const int sprint_ramp_duration =
 			(TICKS_PER_SECOND * 4) / 5;
@@ -2151,10 +2243,15 @@ static void physics_update(
 			player->sprint_ramp_ticks, sprint_ramp_duration);
 		movement_forward +=
 			(movement_forward * sprint_ramp) /
-			(2 * sprint_ramp_duration);
+			(4 * sprint_ramp_duration);
 		movement_sideways +=
 			(movement_sideways * sprint_ramp) /
-			(2 * sprint_ramp_duration);
+			(4 * sprint_ramp_duration);
+
+		// Once airborne, stretch each bound forward without raising the
+		// ordinary grounded sprint speed between leaps.
+		if (!touching_ground)
+			movement_forward += movement_forward/12;
 	}
 
 	_fixed movement_delta_x=
@@ -2298,7 +2395,7 @@ static void physics_update(
 			? GET_ABSOLUTE_POSITION(action_flags)!=MAXIMUM_ABSOLUTE_POSITION/2
 			: (action_flags&_moving));
 	const bool footsteps_active=
-		player_is_local && sprintathon &&
+		player_is_local && sprintathon && !player->sprinting &&
 		directional_input_for_footsteps &&
 		(grounded_for_footsteps || wall_running_for_footsteps) &&
 		!(variables->flags&_FEET_BELOW_MEDIA_BIT) &&
@@ -2309,6 +2406,8 @@ static void physics_update(
 		!(action_flags&_microphone_button) &&
 		footstep_speed>footstep_reference_speed/8;
 	_fixed synchronized_movement_step_phase= -1;
+	int rat_stride_countdown= 0;
+	int rat_stride_elapsed= 0;
 
 	if (!footsteps_active)
 	{
@@ -2317,7 +2416,7 @@ static void physics_update(
 	else
 	{
 		const int normal_footstep_interval= player->sprinting ? 7 :
-			((action_flags&_run_dont_walk) ? 12 : 23);
+			((action_flags&_run_dont_walk) ? 6 : 23);
 		// This countdown also drives the synchronized run/sprint weapon bob.
 		// Stretching it therefore keeps both footsteps and bob at the same 35%
 		// rate as movement during bullet time.
@@ -2352,6 +2451,8 @@ static void physics_update(
 		{
 			const int16 elapsed= cadence_countdown-
 				player->footstep_ticks_remaining;
+			rat_stride_countdown= cadence_countdown;
+			rat_stride_elapsed= elapsed;
 			const angle run_bob_angle= player->sprinting
 				? NORMALIZE_ANGLE(static_cast<angle>(
 					(player->footstep_alternate ? QUARTER_CIRCLE : 3*QUARTER_CIRCLE) +
@@ -2404,6 +2505,34 @@ static void physics_update(
 	}
 	if (synchronized_movement_step_phase>=0)
 		variables->step_phase= synchronized_movement_step_phase;
+
+	/*
+	 * Ordinary running rocks the rat's head from paw to paw. The alternating
+	 * direction is keyed to the same countdown as footsteps and view bob, so
+	 * sound, vertical motion and camera roll cannot drift apart.
+	 */
+	const bool rat_running_tilt=
+		sprintathon && !player->sprinting && footsteps_active &&
+		(action_flags&_run_dont_walk) && rat_stride_countdown>0;
+	if (rat_running_tilt)
+	{
+		constexpr int16 maximum_step_roll= (FULL_CIRCLE*4)/360;
+		const angle sway_angle= static_cast<angle>(
+			(static_cast<int32>(rat_stride_elapsed)*HALF_CIRCLE)/
+			rat_stride_countdown);
+		const int32 sway=
+			(static_cast<int32>(maximum_step_roll)*
+			 cosine_table[sway_angle])>>TRIG_SHIFT;
+		player->rat_step_camera_roll= static_cast<int16>(
+			player->footstep_alternate ? sway : -sway);
+	}
+	else
+	{
+		player->rat_step_camera_roll= static_cast<int16>(
+			(player->rat_step_camera_roll*2)/3);
+		if (std::abs(player->rat_step_camera_roll)<=1)
+			player->rat_step_camera_roll= 0;
+	}
 
 	if (delta_z >= (PLAYER_IS_DEAD(player) ? (AIRBORNE_HEIGHT+DROP_DEAD_HEIGHT) : AIRBORNE_HEIGHT))
 	{

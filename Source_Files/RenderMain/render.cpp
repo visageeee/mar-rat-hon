@@ -1043,6 +1043,9 @@ static void render_viewer_sprite_layer(view_data *view, RasterizerClass *RasPtr)
 
 	// LP change: bug out if weapons-in-hand are not to be displayed
 	if (!view->show_weapons_in_hand) return;
+
+	/* Mar-rat-hon supplies its own paw overlay in the shader renderer. */
+	return;
 	
 	// Need to set this...
 	RasPtr->SetForeground();

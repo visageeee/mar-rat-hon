@@ -1752,6 +1752,160 @@ static void render_slide_legs(view_data *view, RenderStep renderStep)
 	visible_legs.Draw(destination);
 }
 
+static void render_rat_paws(view_data *view, RenderStep renderStep)
+{
+	if (renderStep != kDiffuse || !current_player)
+		return;
+
+	static OGL_Blitter left_paw;
+	static OGL_Blitter right_paw;
+	static OGL_Blitter nose;
+	static bool load_attempted = false;
+
+	if (!load_attempted)
+	{
+		load_attempted = true;
+		FileSpecifier file("gfx/leftpaw.png");
+
+		if (!file.Exists() &&
+			!file.SetNameWithPath("Sprintathon/leftpaw.png"))
+		{
+			file = FileSpecifier(
+				get_data_path(kPathDefaultData) +
+				"/Sprintathon/leftpaw.png");
+		}
+
+		if (file.Exists())
+		{
+			ImageDescriptor image;
+			if (image.LoadFromFile(file, ImageLoader_Colors, 0))
+			{
+				left_paw.Load(image);
+				right_paw.Load(image);
+				right_paw.flip_horizontal = true;
+			}
+		}
+
+		FileSpecifier nose_file("gfx/nose.png");
+		if (!nose_file.Exists() &&
+			!nose_file.SetNameWithPath("Sprintathon/nose.png"))
+		{
+			nose_file = FileSpecifier(
+				get_data_path(kPathDefaultData) +
+					"/Sprintathon/nose.png");
+		}
+
+		if (nose_file.Exists())
+		{
+			ImageDescriptor image;
+			if (image.LoadFromFile(nose_file, ImageLoader_Colors, 0))
+				nose.Load(image);
+		}
+	}
+
+	const fixed_angle live_pitch =
+		FIXED_INTEGERAL_PART(
+			current_player->variables.elevation) * FIXED_ONE +
+		virtual_aim_delta().pitch;
+	const float downward_degrees =
+		-static_cast<float>(live_pitch) * FixedAngleToDegrees;
+
+	float reveal = A1_PIN(
+		(downward_degrees - 8.0f) / 55.0f,
+		0.0f,
+		1.0f);
+	reveal = reveal * reveal * (3.0f - 2.0f * reveal);
+	if (reveal <= 0.001f)
+		return;
+
+	const _fixed polygon_light = get_light_intensity(
+		get_polygon_data(
+			view->origin_polygon_index)->floor_lightsource_index);
+	const float light_shade = A1_PIN(
+		static_cast<float>(polygon_light) /
+			static_cast<float>(FIXED_ONE),
+		0.0f,
+		1.0f);
+
+	Shader::disable();
+	if (nose.Loaded())
+	{
+		const float nose_height = view->screen_height * 0.20f;
+		const float nose_width = nose_height *
+			static_cast<float>(nose.UnscaledWidth()) /
+			static_cast<float>(nose.UnscaledHeight());
+		const float nose_x =
+			(view->screen_width - nose_width) * 0.5f;
+		const float nose_y = view->screen_height -
+			nose_height * 0.58f * reveal;
+
+		nose.tint_color_r = light_shade;
+		nose.tint_color_g = light_shade;
+		nose.tint_color_b = light_shade;
+		nose.tint_color_a = 1.0f;
+		nose.rotation = 0.0f;
+		nose.Draw(Image_Rect(
+			nose_x, nose_y, nose_width, nose_height));
+	}
+
+	if (!left_paw.Loaded() || !right_paw.Loaded())
+		return;
+
+	const float paw_height = view->screen_height * 0.34f;
+	const float paw_width = paw_height *
+		static_cast<float>(left_paw.UnscaledWidth()) /
+		static_cast<float>(left_paw.UnscaledHeight());
+	const float bob_y =
+		-static_cast<float>(current_player->step_height) *
+		static_cast<float>(view->screen_height) /
+		static_cast<float>(WORLD_ONE);
+	const float base_paw_y = view->screen_height -
+		paw_height * 0.88f * reveal;
+
+	// Running alternates the forepaws through a pronounced opposing stroke.
+	// Sprint bounds instead lift and drop both paws with vertical velocity.
+	const float maximum_run_roll =
+		static_cast<float>((FULL_CIRCLE*4)/360);
+	const bool alternating_run =
+		!current_player->sprinting &&
+		current_player->rat_step_camera_roll != 0 &&
+		maximum_run_roll > 0.0f;
+	const float alternating_paw_offset = alternating_run ?
+		A1_PIN(
+			static_cast<float>(current_player->rat_step_camera_roll) /
+				maximum_run_roll,
+			-1.0f,
+			1.0f) * view->screen_height * 0.14f * reveal :
+		0.0f;
+	const float leap_velocity = A1_PIN(
+		static_cast<float>(current_player->variables.external_velocity.k) /
+			static_cast<float>(FIXED_ONE/24),
+		-1.0f,
+		1.0f);
+	const float shared_paw_offset = current_player->sprinting ?
+		-leap_velocity * view->screen_height * 0.12f * reveal :
+		(alternating_run ? 0.0f : bob_y * reveal);
+	const float left_paw_y =
+		base_paw_y + shared_paw_offset + alternating_paw_offset;
+	const float right_paw_y =
+		base_paw_y + shared_paw_offset - alternating_paw_offset;
+	const float left_x =
+		view->screen_width * 0.27f - paw_width * 0.5f;
+	const float right_x =
+		view->screen_width * 0.73f - paw_width * 0.5f;
+
+	left_paw.tint_color_r = right_paw.tint_color_r = light_shade;
+	left_paw.tint_color_g = right_paw.tint_color_g = light_shade;
+	left_paw.tint_color_b = right_paw.tint_color_b = light_shade;
+	left_paw.tint_color_a = right_paw.tint_color_a = 1.0f;
+	left_paw.rotation = right_paw.rotation = 0.0f;
+
+	left_paw.Draw(Image_Rect(
+		left_x, left_paw_y, paw_width, paw_height));
+	right_paw.Draw(Image_Rect(
+		right_x, right_paw_y, paw_width, paw_height));
+}
+
 void RenderRasterize_Shader::render_viewer_sprite_layer(RenderStep renderStep)
 {
         if (!view->show_weapons_in_hand) return;
@@ -1767,8 +1921,17 @@ void RenderRasterize_Shader::render_viewer_sprite_layer(RenderStep renderStep)
         glPushMatrix();
         glLoadIdentity();
 
-	// Draw the sliding body beneath the normal first-person weapon sprites.
-	render_slide_legs(view, renderStep);
+	// Mar-rat-hon replaces the normal weapon viewmodel with two rat paws.
+	render_rat_paws(view, renderStep);
+
+	Shader::disable();
+	glPopMatrix();
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_TEXTURE);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	return;
 
         rectangle_definition rect;
 	weapon_display_information display_data;

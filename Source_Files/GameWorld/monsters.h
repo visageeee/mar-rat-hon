@@ -88,6 +88,15 @@ enum /* activation biases (set in editor) */
 /* player monsters are never active */
 
 #define MONSTER_IS_PLAYER(m) ((m)->type==_monster_marine)
+
+/*
+ * Mar-rat-hon uses a genuinely small player body. Keep these dimensions
+ * shared by wall collision, object collision and the first-person camera so
+ * the player does not merely look small while retaining a marine-sized hitbox.
+ */
+#define MAR_RAT_HON_PLAYER_RADIUS (WORLD_ONE/16)
+#define MAR_RAT_HON_PLAYER_HEIGHT (WORLD_ONE/8)
+
 enum /* monster types */
 {
 	_monster_marine,
@@ -326,6 +335,7 @@ bool sprintathon_slide_attack(
 void sprintathon_play_kick_hit_sound(short aggressor_index);
 void sprintathon_play_wall_kick_sound(short aggressor_index);
 void sprintathon_play_footstep_sound(short aggressor_index, bool alternate);
+void sprintathon_play_squeak_sound(short aggressor_index);
 
 // Start a fresh slide/kick hit set. Each target can be struck only once
 // until this is called again for the attacking player.

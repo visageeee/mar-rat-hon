@@ -56,6 +56,7 @@ public:
 	static int ScreenHeight();
 
 	GLuint nearFilter;
+	bool flip_horizontal;
 	
 private:
 	

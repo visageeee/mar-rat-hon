@@ -24,6 +24,7 @@
 #include "OGL_Blitter.h"
 
 #include <memory>
+#include <utility>
 
 #include "OGL_Setup.h"
 #include "shell.h"
@@ -35,7 +36,8 @@
 const int OGL_Blitter::tile_size;
 std::set<OGL_Blitter*> *OGL_Blitter::m_blitter_registry = NULL;
 
-OGL_Blitter::OGL_Blitter(GLuint nearFilter) : m_textures_loaded(false), nearFilter(nearFilter)
+OGL_Blitter::OGL_Blitter(GLuint nearFilter) :
+	m_textures_loaded(false), nearFilter(nearFilter), flip_horizontal(false)
 {
 	m_src.x = m_src.y = m_src.w = m_src.h = 0;
 	m_scaled_src.x = m_scaled_src.y = m_scaled_src.w = m_scaled_src.h = 0;
@@ -265,7 +267,19 @@ void OGL_Blitter::Draw(const Image_Rect& dst, const Image_Rect& raw_src)
 		GLdouble UMin = ty / (GLdouble) m_tile_height;
 		GLdouble UMax = (ty + th) / (GLdouble) m_tile_height;
 		
-		GLdouble tleft   = ((m_rects[i].x + tx) * x_scale) + (GLdouble) (dst.x - (src.x * x_scale));
+		GLdouble tleft;
+		if (flip_horizontal)
+		{
+			const GLdouble source_right = m_rects[i].x + tx + tw;
+			tleft = dst.x +
+				(src.x + src.w - source_right) * x_scale;
+			std::swap(VMin, VMax);
+		}
+		else
+		{
+			tleft = ((m_rects[i].x + tx) * x_scale) +
+				(GLdouble) (dst.x - (src.x * x_scale));
+		}
 		GLdouble tright  = tleft + (tw * x_scale);
 		GLdouble ttop    = ((m_rects[i].y + ty) * y_scale) + (GLdouble) (dst.y - (src.y * y_scale));
 		GLdouble tbottom = ttop + (th * y_scale);
