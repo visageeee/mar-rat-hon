@@ -19,6 +19,9 @@ function GetCommonFiles() {
 	$sprintathon_assets = @(
 		"gfx/slidelegs.png",
 		"gfx/frontlegs.png",
+		"gfx/leftpaw.png",
+		"gfx/nose.png",
+		"sfx/squeak.ogg",
 		"snd/slide.ogg",
 		"snd/kickhit.ogg",
 		"snd/wallkick.ogg",
@@ -146,7 +149,7 @@ if(!(Test-Path -Path $output_path -PathType Container)) {
 $array_exclude_copy = @('Makefile','Makefile.*','*.svn','*.git')
 $array_exe_name = @()
 $array_package_name = @()
-if($a1) {$array_exe_name += "Sprintathon.exe"; $array_package_name += "Sprintathon"}
+if($a1) {$array_exe_name += "Sprintathon.exe"; $array_package_name += "Mar-rat-hon"}
 if($m1) {$array_exe_name += "Classic Marathon.exe"; $array_package_name += "Marathon"}
 if($m2) {$array_exe_name += "Classic Marathon 2.exe"; $array_package_name += "Marathon2"}
 if($m3) {$array_exe_name += "Classic Marathon Infinity.exe"; $array_package_name += "MarathonInfinity"}

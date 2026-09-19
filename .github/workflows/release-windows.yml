@@ -1,4 +1,4 @@
-name: release-windows
+name: Build Mar-rat-hon for Windows
 # Registered for Mar-rat-hon Actions
 
 on: [workflow_dispatch, workflow_call]
@@ -26,13 +26,13 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v6
       with:
-        name: alephone-windows-release-x64
+        name: mar-rat-hon-windows-release-x64
         if-no-files-found: error
         path: 'VisualStudio/windows-build-archives/*.zip'
         
     - name: Upload debugging symbols
       uses: actions/upload-artifact@v6
       with:
-        name: alephone-windows-symbols-x64
+        name: mar-rat-hon-windows-symbols-x64
         path: 'VisualStudio/x64/Release/*.pdb'
         

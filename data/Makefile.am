@@ -10,6 +10,9 @@ sprintathondir = $(pkgdatadir)/Sprintathon
 sprintathon_DATA = \
   $(top_srcdir)/gfx/slidelegs.png \
   $(top_srcdir)/gfx/frontlegs.png \
+  $(top_srcdir)/gfx/leftpaw.png \
+  $(top_srcdir)/gfx/nose.png \
+  $(top_srcdir)/sfx/squeak.ogg \
   $(top_srcdir)/snd/slide.ogg \
   $(top_srcdir)/snd/kickhit.ogg \
   $(top_srcdir)/snd/wallkick.ogg \

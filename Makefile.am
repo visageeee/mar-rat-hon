@@ -19,6 +19,9 @@ EXTRA_DIST = \
 	snd/kickhit.ogg                                                            \
 	gfx/frontlegs.png                                                          \
 	gfx/slidelegs.png                                                          \
+	gfx/leftpaw.png                                                            \
+	gfx/nose.png                                                               \
+	sfx/squeak.ogg                                                             \
 	snd/slide.ogg                                                              \
 	data/AlephSansMono-Bold.ttf                                                 \
 	data/AlephSansMonoLicense.txt                                               \

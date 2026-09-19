@@ -1,4 +1,4 @@
-name: Build Sprintathon for macOS
+name: Build Mar-rat-hon for macOS
 # Registered for Mar-rat-hon Actions
 
 on:
@@ -11,23 +11,26 @@ jobs:
     runs-on: macos-15
 
     steps:
-      - name: Check out Sprintathon
+      - name: Check out Mar-rat-hon
         uses: actions/checkout@v5
         with:
           submodules: true
 
-      - name: Build Sprintathon
+      - name: Build Mar-rat-hon
         uses: ./.github/actions/build-mac-osx
         with:
           xcode_targets: "Aleph One"
 
-      - name: Package Sprintathon app
+      - name: Package Mar-rat-hon app
         run: |
           test -d "Xcode/build/Release/Sprintathon.app"
 
           mkdir -p             "Xcode/build/Release/Sprintathon.app/Contents/Resources/snd"
+          mkdir -p             "Xcode/build/Release/Sprintathon.app/Contents/Resources/DataFiles/Sprintathon"
 
           cp snd/*.ogg             "Xcode/build/Release/Sprintathon.app/Contents/Resources/snd/"
+          cp gfx/leftpaw.png gfx/nose.png sfx/squeak.ogg \
+            "Xcode/build/Release/Sprintathon.app/Contents/Resources/DataFiles/Sprintathon/"
 
           codesign --force --deep --sign - --timestamp=none \
             "Xcode/build/Release/Sprintathon.app"
@@ -37,12 +40,12 @@ jobs:
 
           ditto -c -k --sequesterRsrc --keepParent \
             "Xcode/build/Release/Sprintathon.app" \
-            "Sprintathon-macOS-universal.zip"
+            "Mar-rat-hon-macOS-universal.zip"
 
-      - name: Upload Sprintathon
+      - name: Upload Mar-rat-hon
         uses: actions/upload-artifact@v6
         with:
-          name: Sprintathon-macOS-universal
+          name: Mar-rat-hon-macOS-universal
           if-no-files-found: error
-          path: Sprintathon-macOS-universal.zip
+          path: Mar-rat-hon-macOS-universal.zip
           retention-days: 14

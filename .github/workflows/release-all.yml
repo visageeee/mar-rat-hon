@@ -1,4 +1,4 @@
-name: release-all
+name: Build all Mar-rat-hon releases
 # Registered for Mar-rat-hon Actions
 
 on: workflow_dispatch
